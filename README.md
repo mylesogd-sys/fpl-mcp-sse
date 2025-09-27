@@ -83,40 +83,67 @@ Production-ready Model Context Protocol (MCP) server for Fantasy Premier League 
 
 ## 🔧 n8n Integration
 
-### n8n Cloud Setup
+### Prerequisites
 
-1. **Install MCP Client Node** in n8n
-2. **Configure Connection**:
-   - **Transport**: SSE
-   - **URL**: `https://your-railway-app.railway.app/sse`
-   - **Authentication**: Bearer token (if configured)
+1. **Enable Community Nodes as Tools**:
+   ```bash
+   # Environment variable required for AI Agent integration
+   export N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
+   ```
 
-### Example n8n Workflow
+2. **Install MCP Client Node** in n8n Community Nodes
 
-```json
-{
-  "nodes": [
-    {
-      "name": "MCP Client",
-      "type": "@coleam00/n8n-nodes-mcp",
-      "parameters": {
-        "tool": "get_captain_picks",
-        "arguments": {
-          "position_filter": "FWD",
-          "max_price": 12
-        }
-      }
-    },
-    {
-      "name": "AI Agent",
-      "type": "n8n-nodes-langchain.agent",
-      "parameters": {
-        "prompt": "Create a Twitter thread about this week's captain picks: {{ $json }}"
-      }
-    }
-  ]
-}
+### MCP Server Tool Node Configuration
+
+- **Server URL**: `https://fpl-mcp-sse-production.up.railway.app/sse`
+- **Transport Type**: `SSE` (Server-Sent Events)
+- **Authentication**: `None`
+- **Auto-Discovery**: All 10 FPL tools automatically available
+
+### AI Agent Configuration
+
+**System Message:**
 ```
+You are an expert Fantasy Premier League (FPL) analyst with access to real-time FPL data through specialized tools.
+
+ANALYSIS APPROACH:
+1. Start with get_gameweek_context for current status
+2. Use appropriate tools based on the question type:
+   - Player stats/form → analyze_player_form
+   - Player comparisons → compare_players
+   - Team fixtures → analyze_team_fixtures
+   - Captain recommendations → get_captain_picks
+   - Transfer targets → get_transfer_trends
+   - General player data → get_bootstrap_data
+
+RESPONSE STRUCTURE:
+- Provide current gameweek context when relevant
+- Present key metrics and data points
+- Give clear, actionable recommendations
+- Include confidence levels for decisions
+
+Always use the available tools to get current data before making any recommendations.
+```
+
+**User Message:**
+```
+{{ $json.chatInput }}
+```
+
+### Example Workflow Setup
+
+1. **Chat Trigger** → captures user FPL questions
+2. **MCP Server Tool** → connects to FPL MCP server
+3. **AI Agent** → uses MCP tools for data-driven analysis
+4. **Chat Response** → returns expert FPL advice
+
+### Validated Use Cases
+
+✅ **Player Analysis**: "How many points does Semenyo have?"
+✅ **Comparisons**: "Should I bring in Semenyo for Sarr?"
+✅ **Fixtures**: "How are Arsenal fixtures for next 3 gameweeks?"
+✅ **Captaincy**: "Should I captain Salah or Palmer?"
+✅ **Transfers**: "Which keeper should I bring in?"
 
 ## 📊 Response Format
 
@@ -155,8 +182,25 @@ Authorization: Bearer your-secret-token
 
 ### Get Captain Recommendations
 ```bash
-curl -X POST https://your-app.railway.app/mcp \
+curl -X POST https://fpl-mcp-sse-production.up.railway.app/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {"tools": {}},
+      "clientInfo": {"name": "test-client", "version": "1.0.0"}
+    },
+    "id": 1
+  }'
+
+# Then use returned session ID for tool calls
+curl -X POST https://fpl-mcp-sse-production.up.railway.app/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: YOUR_SESSION_ID" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -167,25 +211,7 @@ curl -X POST https://your-app.railway.app/mcp \
         "max_price": 12
       }
     },
-    "id": 1
-  }'
-```
-
-### Analyze Player Form
-```bash
-curl -X POST https://your-app.railway.app/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/call",
-    "params": {
-      "name": "analyze_player_form",
-      "arguments": {
-        "player_id": 123,
-        "gameweeks": 5
-      }
-    },
-    "id": 1
+    "id": 2
   }'
 ```
 
@@ -204,12 +230,18 @@ src/
 └── utils/                # Helpers & constants
 ```
 
-## 📈 Performance
+## 📈 Performance & Production Status
 
+✅ **Production Ready** - Deployed at `https://fpl-mcp-sse-production.up.railway.app`
+✅ **Session Management Fixed** - Synchronized session IDs across transports
+✅ **Validated with n8n** - Working AI Agent integration confirmed
+
+### Features
 - **Intelligent Caching**: FPL API responses cached with appropriate TTL
 - **Session Management**: Automatic cleanup of expired connections
 - **Error Handling**: Comprehensive error responses with context
 - **Health Monitoring**: Built-in health checks and session tracking
+- **Dual Transport**: SSE for n8n Cloud, HTTP for testing
 
 ## 🤝 Contributing
 
