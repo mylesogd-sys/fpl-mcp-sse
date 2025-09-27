@@ -232,7 +232,7 @@ src/
 
 ## 📈 Performance & Production Status
 
-✅ **Production Ready** - Deployed at `https://fpl-mcp-sse-production.up.railway.app`
+✅ **Production Ready** - Deployed on railway
 ✅ **Session Management Fixed** - Synchronized session IDs across transports
 ✅ **Validated with n8n** - Working AI Agent integration confirmed
 
