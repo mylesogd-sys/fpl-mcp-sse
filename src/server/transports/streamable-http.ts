@@ -55,7 +55,7 @@ export class StreamableHTTPTransportHandler {
   };
 
   private async handlePOSTRequest(req: Request, res: Response) {
-    const sessionId = req.headers['x-session-id'] as string;
+    const sessionId = (req.headers['mcp-session-id'] || req.headers['x-session-id']) as string;
 
     if (sessionId) {
       // Use existing session
@@ -79,19 +79,21 @@ export class StreamableHTTPTransportHandler {
         session.lastActivity = new Date();
       }
 
-      // Set session ID in response header only if valid
+      // Set session ID in response headers (both MCP and HTTP)
       if (sessionId) {
         res.setHeader('X-Session-ID', sessionId);
+        res.setHeader('Mcp-Session-Id', sessionId);
       }
 
       await transport.handleRequest(req, res, req.body);
     } else {
-      // Create new session-based transport
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => this.generateSessionId()
-      });
+      // Generate session ID first
+      const newSessionId = this.generateSessionId();
 
-      const newSessionId = transport.sessionId || this.generateSessionId();
+      // Create new session-based transport with our session ID
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => newSessionId
+      });
 
       // Create a new MCP server instance for this session
       const { createMCPServer } = await import('../mcp-server.js');
@@ -108,9 +110,10 @@ export class StreamableHTTPTransportHandler {
 
       console.log(`New HTTP session created: ${newSessionId}`);
 
-      // Set session ID in response header only if valid
+      // Set session ID in response headers (both MCP and HTTP)
       if (newSessionId) {
         res.setHeader('X-Session-ID', newSessionId);
+        res.setHeader('Mcp-Session-Id', newSessionId);
       }
 
       // Setup cleanup on response close
@@ -126,7 +129,7 @@ export class StreamableHTTPTransportHandler {
   }
 
   private async handleGETRequest(req: Request, res: Response) {
-    const sessionId = req.headers['x-session-id'] as string;
+    const sessionId = (req.headers['mcp-session-id'] || req.headers['x-session-id']) as string;
 
     if (!sessionId) {
       return res.status(400).json({
@@ -156,7 +159,7 @@ export class StreamableHTTPTransportHandler {
   }
 
   private async handleDELETERequest(req: Request, res: Response) {
-    const sessionId = req.headers['x-session-id'] as string;
+    const sessionId = (req.headers['mcp-session-id'] || req.headers['x-session-id']) as string;
 
     if (!sessionId) {
       return res.status(400).json({
