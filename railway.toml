@@ -1,0 +1,24 @@
+[build]
+# Use Node.js 18+ for Railway deployment
+builder = "nixpacks"
+
+[deploy]
+# Start command for production
+startCommand = "npm start"
+
+# Health check configuration
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+
+# Restart policy
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[env]
+# Environment variables for Railway
+NODE_ENV = "production"
+PORT = "8080"
+CORS_ORIGIN = "*"
+
+# Optional authentication (set in Railway dashboard)
+# AUTH_TOKEN = "${AUTH_TOKEN}"
