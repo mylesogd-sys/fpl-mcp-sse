@@ -6,6 +6,7 @@ import { TransportType, SessionInfo } from '../../types/mcp.js';
 export class SSETransportHandler {
   private transports = new Map<string, SSEServerTransport>();
   private sessions = new Map<string, SessionInfo>();
+  private serverInstances = new Map<string, McpServer>();
 
   constructor(private mcpServer: McpServer) {}
 
@@ -18,8 +19,13 @@ export class SSETransportHandler {
       const transport = new SSEServerTransport('/messages', res);
       const sessionId = transport.sessionId;
 
+      // Create a new MCP server instance for this session
+      const { createMCPServer } = await import('../mcp-server.js');
+      const sessionServer = createMCPServer();
+
       // Store transport and session info
       this.transports.set(sessionId, transport);
+      this.serverInstances.set(sessionId, sessionServer);
       this.sessions.set(sessionId, {
         id: sessionId,
         type: TransportType.SSE,
@@ -33,17 +39,19 @@ export class SSETransportHandler {
       res.on('close', () => {
         console.log(`SSE connection closed: ${sessionId}`);
         this.transports.delete(sessionId);
+        this.serverInstances.delete(sessionId);
         this.sessions.delete(sessionId);
       });
 
       res.on('error', (error) => {
         console.error(`SSE connection error for ${sessionId}:`, error);
         this.transports.delete(sessionId);
+        this.serverInstances.delete(sessionId);
         this.sessions.delete(sessionId);
       });
 
       // Connect MCP server to transport
-      await this.mcpServer.connect(transport);
+      await sessionServer.connect(transport);
 
     } catch (error) {
       console.error('SSE connection error:', error);
@@ -133,7 +141,13 @@ export class SSETransportHandler {
           transport.close();
         }
 
+        const sessionServer = this.serverInstances.get(sessionId);
+        if (sessionServer) {
+          sessionServer.close();
+        }
+
         this.transports.delete(sessionId);
+        this.serverInstances.delete(sessionId);
         this.sessions.delete(sessionId);
         cleanedCount++;
       }
@@ -154,7 +168,16 @@ export class SSETransportHandler {
       }
     }
 
+    for (const [sessionId, sessionServer] of this.serverInstances.entries()) {
+      try {
+        await sessionServer.close();
+      } catch (error) {
+        console.error(`Error closing SSE server ${sessionId}:`, error);
+      }
+    }
+
     this.transports.clear();
+    this.serverInstances.clear();
     this.sessions.clear();
     console.log('SSE transport handler shutdown complete');
   }

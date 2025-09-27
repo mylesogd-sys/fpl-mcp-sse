@@ -6,6 +6,7 @@ import { TransportType, SessionInfo } from '../../types/mcp.js';
 export class StreamableHTTPTransportHandler {
   private transports = new Map<string, StreamableHTTPServerTransport>();
   private sessions = new Map<string, SessionInfo>();
+  private serverInstances = new Map<string, McpServer>();
 
   constructor(private mcpServer: McpServer) {}
 
@@ -59,7 +60,9 @@ export class StreamableHTTPTransportHandler {
     if (sessionId) {
       // Use existing session
       const transport = this.transports.get(sessionId);
-      if (!transport) {
+      const sessionServer = this.serverInstances.get(sessionId);
+
+      if (!transport || !sessionServer) {
         return res.status(404).json({
           jsonrpc: '2.0',
           error: {
@@ -76,6 +79,9 @@ export class StreamableHTTPTransportHandler {
         session.lastActivity = new Date();
       }
 
+      // Set session ID in response header
+      res.setHeader('X-Session-ID', sessionId);
+
       await transport.handleRequest(req, res, req.body);
     } else {
       // Create new session-based transport
@@ -84,7 +90,13 @@ export class StreamableHTTPTransportHandler {
       });
 
       const newSessionId = transport.sessionId!;
+
+      // Create a new MCP server instance for this session
+      const { createMCPServer } = await import('../mcp-server.js');
+      const sessionServer = createMCPServer();
+
       this.transports.set(newSessionId, transport);
+      this.serverInstances.set(newSessionId, sessionServer);
       this.sessions.set(newSessionId, {
         id: newSessionId,
         type: TransportType.STREAMABLE_HTTP,
@@ -94,6 +106,9 @@ export class StreamableHTTPTransportHandler {
 
       console.log(`New HTTP session created: ${newSessionId}`);
 
+      // Set session ID in response header
+      res.setHeader('X-Session-ID', newSessionId);
+
       // Setup cleanup on response close
       res.on('close', () => {
         console.log(`HTTP connection closed: ${newSessionId}`);
@@ -101,7 +116,7 @@ export class StreamableHTTPTransportHandler {
       });
 
       // Connect server and handle request
-      await this.mcpServer.connect(transport);
+      await sessionServer.connect(transport);
       await transport.handleRequest(req, res, req.body);
     }
   }
@@ -171,7 +186,17 @@ export class StreamableHTTPTransportHandler {
       console.error(`Error closing transport ${sessionId}:`, error);
     }
 
+    const sessionServer = this.serverInstances.get(sessionId);
+    if (sessionServer) {
+      try {
+        await sessionServer.close();
+      } catch (error) {
+        console.error(`Error closing server ${sessionId}:`, error);
+      }
+    }
+
     this.transports.delete(sessionId);
+    this.serverInstances.delete(sessionId);
     this.sessions.delete(sessionId);
 
     res.status(200).json({
@@ -208,7 +233,13 @@ export class StreamableHTTPTransportHandler {
           transport.close();
         }
 
+        const sessionServer = this.serverInstances.get(sessionId);
+        if (sessionServer) {
+          sessionServer.close();
+        }
+
         this.transports.delete(sessionId);
+        this.serverInstances.delete(sessionId);
         this.sessions.delete(sessionId);
         cleanedCount++;
       }
@@ -229,7 +260,16 @@ export class StreamableHTTPTransportHandler {
       }
     }
 
+    for (const [sessionId, sessionServer] of this.serverInstances.entries()) {
+      try {
+        await sessionServer.close();
+      } catch (error) {
+        console.error(`Error closing HTTP server ${sessionId}:`, error);
+      }
+    }
+
     this.transports.clear();
+    this.serverInstances.clear();
     this.sessions.clear();
     console.log('Streamable HTTP transport handler shutdown complete');
   }
