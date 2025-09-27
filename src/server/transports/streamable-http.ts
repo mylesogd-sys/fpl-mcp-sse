@@ -79,8 +79,10 @@ export class StreamableHTTPTransportHandler {
         session.lastActivity = new Date();
       }
 
-      // Set session ID in response header
-      res.setHeader('X-Session-ID', sessionId);
+      // Set session ID in response header only if valid
+      if (sessionId) {
+        res.setHeader('X-Session-ID', sessionId);
+      }
 
       await transport.handleRequest(req, res, req.body);
     } else {
@@ -89,7 +91,7 @@ export class StreamableHTTPTransportHandler {
         sessionIdGenerator: () => this.generateSessionId()
       });
 
-      const newSessionId = transport.sessionId!;
+      const newSessionId = transport.sessionId || this.generateSessionId();
 
       // Create a new MCP server instance for this session
       const { createMCPServer } = await import('../mcp-server.js');
@@ -106,8 +108,10 @@ export class StreamableHTTPTransportHandler {
 
       console.log(`New HTTP session created: ${newSessionId}`);
 
-      // Set session ID in response header
-      res.setHeader('X-Session-ID', newSessionId);
+      // Set session ID in response header only if valid
+      if (newSessionId) {
+        res.setHeader('X-Session-ID', newSessionId);
+      }
 
       // Setup cleanup on response close
       res.on('close', () => {
