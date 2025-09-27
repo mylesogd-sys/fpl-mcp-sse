@@ -16,7 +16,7 @@ export function createErrorHandler() {
     console.error('MCP Server Error:', error);
 
     // Determine error type and code
-    let errorCode = MCPErrorCode.INTERNAL_ERROR;
+    let errorCode: MCPErrorCode = MCPErrorCode.INTERNAL_ERROR;
     let message = error.message || 'Internal server error';
 
     if (error.name === 'ValidationError') {
@@ -29,6 +29,14 @@ export function createErrorHandler() {
       errorCode = MCPErrorCode.NOT_FOUND;
     } else if (error.message.includes('unauthorized')) {
       errorCode = MCPErrorCode.UNAUTHORIZED;
+    } else if (error.message.includes('forbidden')) {
+      errorCode = MCPErrorCode.FORBIDDEN;
+    } else if (error.message.includes('rate limit')) {
+      errorCode = MCPErrorCode.RATE_LIMITED;
+    } else if (error.message.includes('method not found')) {
+      errorCode = MCPErrorCode.METHOD_NOT_FOUND;
+    } else if (error.message.includes('invalid request')) {
+      errorCode = MCPErrorCode.INVALID_REQUEST;
     }
 
     const errorResponse: MCPErrorResponse = {
@@ -58,10 +66,18 @@ export function createErrorHandler() {
         break;
       case MCPErrorCode.INVALID_PARAMS:
       case MCPErrorCode.PARSE_ERROR:
+      case MCPErrorCode.INVALID_REQUEST:
         statusCode = 400;
+        break;
+      case MCPErrorCode.METHOD_NOT_FOUND:
+        statusCode = 404;
         break;
       case MCPErrorCode.RATE_LIMITED:
         statusCode = 429;
+        break;
+      case MCPErrorCode.INTERNAL_ERROR:
+      default:
+        statusCode = 500;
         break;
     }
 

@@ -18,7 +18,7 @@ export function createMCPServer(): McpServer {
       tool.name,
       {
         description: tool.description,
-        inputSchema: tool.inputSchema
+        inputSchema: tool.inputSchema.shape
       },
       async (input: any) => {
         try {
@@ -35,7 +35,7 @@ export function createMCPServer(): McpServer {
           return {
             content: [
               {
-                type: 'text',
+                type: 'text' as const,
                 text: JSON.stringify(result, null, 2)
               }
             ]
@@ -60,7 +60,7 @@ export function createMCPServer(): McpServer {
           return {
             content: [
               {
-                type: 'text',
+                type: 'text' as const,
                 text: JSON.stringify(errorResponse, null, 2)
               }
             ]

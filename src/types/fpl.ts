@@ -102,6 +102,8 @@ export const ElementSchema = z.object({
   total_points: z.number(),
   points_per_game: z.string(),
   selected_by_percent: z.string(),
+  transfers_in_event: z.number(),
+  transfers_out_event: z.number(),
   form: z.string(),
   minutes: z.number(),
   goals_scored: z.number(),

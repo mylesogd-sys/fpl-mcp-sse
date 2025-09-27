@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { z } from 'zod';
 import { BootstrapData, BootstrapDataSchema, Fixture, FixtureSchema } from '../types/fpl.js';
 import { FPL_API } from '../utils/constants.js';
 
@@ -61,7 +62,7 @@ export class FPLApiService {
 
     return this.fetchWithCache<Fixture[]>(
       url,
-      BootstrapDataSchema.shape.elements, // Using elements schema as placeholder
+      z.array(FixtureSchema), // Correct schema for fixtures array
       FPL_API.CACHE_TTL.FIXTURES
     );
   }
@@ -70,7 +71,7 @@ export class FPLApiService {
     const url = `${FPL_API.BASE_URL}${FPL_API.ENDPOINTS.ELEMENT_SUMMARY.replace('{id}', playerId.toString())}`;
     return this.fetchWithCache(
       url,
-      BootstrapDataSchema.shape.elements.element(), // Schema for single element
+      z.any(), // Using any for element summary as it has complex nested structure
       FPL_API.CACHE_TTL.PLAYER_DATA
     );
   }
@@ -79,7 +80,7 @@ export class FPLApiService {
     const url = `${FPL_API.BASE_URL}${FPL_API.ENDPOINTS.EVENT_LIVE.replace('{id}', eventId.toString())}`;
     return this.fetchWithCache(
       url,
-      BootstrapDataSchema.shape.elements, // Using elements schema as placeholder
+      z.any(), // Using any for live event data as it has complex nested structure
       FPL_API.CACHE_TTL.LIVE_DATA
     );
   }
@@ -88,7 +89,7 @@ export class FPLApiService {
     const url = `${FPL_API.BASE_URL}${FPL_API.ENDPOINTS.DREAM_TEAM.replace('{id}', eventId.toString())}`;
     return this.fetchWithCache(
       url,
-      BootstrapDataSchema.shape.elements, // Using elements schema as placeholder
+      z.any(), // Using any for dream team data as it has complex nested structure
       FPL_API.CACHE_TTL.LIVE_DATA
     );
   }
